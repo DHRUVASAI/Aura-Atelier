@@ -603,6 +603,23 @@ export const VendorsAndThemesView: React.FC<VendorsAndThemesViewProps> = ({
                     Check Vendor Replies
                   </button>
 
+                  {onSendToWorkspaceEmail && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSendToWorkspaceEmail(
+                          activeVendor.contactEmail,
+                          strategy.subjectLine,
+                          strategy.emailBody
+                        );
+                      }}
+                      className="px-3 py-2 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-500 transition-colors cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Mail className="w-3.5 h-3.5" />
+                      <span>Send to Workspace Email</span>
+                    </button>
+                  )}
+
                   <button
                     type="button"
                     onClick={async () => {

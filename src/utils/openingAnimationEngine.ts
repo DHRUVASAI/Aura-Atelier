@@ -404,12 +404,6 @@ export function computeVideoOpeningProgress(
     lightingBadge = 'TWILIGHT MORPH';
   }
 
-  // Smooth title fade-in as the wrought-iron gates swing open (between 6% and 22% of video)
-  const fadeIn = Math.max(0, Math.min(1, (clamped - 0.04) / 0.16));
-  const titleOpacity = Number((0.15 + fadeIn * 0.85).toFixed(3));
-  const titleScale = Number((0.95 + clamped * 0.07).toFixed(3));
-  const subtitleVisible = clamped >= 0.12;
-
   return {
     progressPercent,
     phaseLabel,

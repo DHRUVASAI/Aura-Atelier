@@ -1,5 +1,5 @@
 import * as CANNON from 'cannon-es';
-import type { CylinderArgs, PhysicsProps, Triplet } from '@react-three/cannon';
+import type { PhysicsProps, Triplet } from '@react-three/cannon';
 import { SeatingTable } from '../types/planning';
 
 export interface CannonPhysicsConfig {

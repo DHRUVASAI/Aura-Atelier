@@ -10,9 +10,7 @@ import {
   ArrowRight,
   Check,
   Copy,
-  Film,
   RotateCcw,
-  Sparkles,
   Trash2,
   Upload,
   Volume2,
@@ -109,18 +107,15 @@ export const OpeningCinematic3D: React.FC<OpeningCinematic3DProps> = ({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const progressFillRef = useRef<HTMLDivElement | null>(null);
   const phaseTextRef = useRef<HTMLSpanElement | null>(null);
-  const titleContainerRef = useRef<HTMLDivElement | null>(null);
-  const lightingBadgeRef = useRef<HTMLSpanElement | null>(null);
-
   const [isFadingOut, setIsFadingOut] = useState<boolean>(false);
   const [isStudioModalOpen, setIsStudioModalOpen] = useState<boolean>(false);
   const [activeVideoSrc, setActiveVideoSrc] = useState<string | null>(
     DEFAULT_GOOGLE_FLOW_VIDEO_PATH
   );
+  const [isMuted, setIsMuted] = useState<boolean>(true);
   const [videoSourceLabel, setVideoSourceLabel] = useState<string>(
     'Google Flow · Botanical Glasshouse Lighting Morph (Option 3)'
   );
-  const [isMuted, setIsMuted] = useState<boolean>(true);
   const [customUrlInput, setCustomUrlInput] = useState<string>('');
   const [copiedPromptId, setCopiedPromptId] = useState<string | null>(null);
   const [uploadStatusMsg, setUploadStatusMsg] = useState<string | null>(null);
@@ -725,7 +720,7 @@ export const OpeningCinematic3D: React.FC<OpeningCinematic3DProps> = ({
                 </h2>
                 <p className="text-xs text-slate-400 mt-1">
                   Copy one of the tailored prompts below into Google Flow, export your MP4 clip, and upload it right here—or save it as{' '}
-                  <code className="text-amber-300 font-mono">public/opening-intro.mp4</code> in your repo.
+                  <code className="text-amber-300 font-mono">public/opening-intro.mp4</code> in your repo. Active Source: <span className="text-amber-300 font-mono">{videoSourceLabel}</span>
                 </p>
               </div>
               <button

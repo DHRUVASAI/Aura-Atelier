@@ -73,7 +73,7 @@ export const BudgetAndPaymentsView: React.FC<BudgetAndPaymentsViewProps> = ({
     useState<BudgetLineItem['category']>('Culinary & Beverage');
   const [newAllocated, setNewAllocated] = useState(150000);
   const [newSpent, setNewSpent] = useState(0);
-  const [newPriority, setNewPriority] = useState<BudgetLineItem['priority']>('elevated');
+  const [newPriority] = useState<BudgetLineItem['priority']>('elevated');
 
   // Payment Gateway Form State
   const [selectedVendorId, setSelectedVendorId] = useState<string>(
@@ -90,7 +90,7 @@ export const BudgetAndPaymentsView: React.FC<BudgetAndPaymentsViewProps> = ({
   // Timeline Form State
   const [msTime, setMsTime] = useState('20:30');
   const [msTitle, setMsTitle] = useState('');
-  const [msOwner, setMsOwner] = useState('Lead Producer');
+  const [msOwner] = useState('Lead Producer');
   const [msLocation, setMsLocation] = useState('Main Courtyard');
 
   // Contextual Google Workspace State (Calendar, Docs, Tasks)
