@@ -120,7 +120,7 @@ export const OpeningCinematic3D: React.FC<OpeningCinematic3DProps> = ({
   const [videoSourceLabel, setVideoSourceLabel] = useState<string>(
     'Google Flow · Botanical Glasshouse Lighting Morph (Option 3)'
   );
-  const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [isMuted, setIsMuted] = useState<boolean>(true);
   const [customUrlInput, setCustomUrlInput] = useState<string>('');
   const [copiedPromptId, setCopiedPromptId] = useState<string | null>(null);
   const [uploadStatusMsg, setUploadStatusMsg] = useState<string | null>(null);
@@ -140,6 +140,16 @@ export const OpeningCinematic3D: React.FC<OpeningCinematic3DProps> = ({
 
   useEffect(() => {
     hasActiveVideoRef.current = Boolean(activeVideoSrc);
+    if (activeVideoSrc && videoRef.current) {
+      videoRef.current.currentTime = 0;
+      videoRef.current.play().catch(() => {
+        if (videoRef.current) {
+          videoRef.current.muted = true;
+          setIsMuted(true);
+          videoRef.current.play().catch(() => {});
+        }
+      });
+    }
   }, [activeVideoSrc]);
 
   const triggerSmoothExit = () => {
