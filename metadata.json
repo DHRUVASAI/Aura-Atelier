@@ -1,0 +1,6 @@
+{
+  "name": "Aura Atelier — 3D Event & Spatial Planning Studio",
+  "description": "AI-powered 3D event, wedding, and community celebration planning platform with interactive spatial seating, real-time budget tracking, vendor negotiation, biochemical allergen & floral safety scout, and Google Workspace sync.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
