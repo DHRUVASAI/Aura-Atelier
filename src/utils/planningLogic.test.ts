@@ -414,7 +414,7 @@ test('optimizeBudgetAllocation handles balanced budget without over-spend gracef
   const items: BudgetLineItem[] = [
     {
       id: 'b1',
-      category: 'Venue',
+      category: 'Venue & Architecture',
       title: 'Palace Courtyard',
       allocated: 1000000,
       spent: 900000,
@@ -438,7 +438,7 @@ test('sanitizeInputText handles empty, boundary, and special character inputs sa
 
 test('calculateSeatingMetrics handles empty guest lists without NaN errors', () => {
   const tables: SeatingTable[] = [
-    { tableNumber: 1, label: 'Table 1', capacity: 8, zone: 'Garden', x: 0, z: 0 },
+    { tableNumber: 1, label: 'Table 1', capacity: 8, zone: 'VIP Garden', x: 0, z: 0 },
   ];
   const metrics = calculateSeatingMetrics([], tables);
   assert.equal(metrics.confirmedGuests, 0);
