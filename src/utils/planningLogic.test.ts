@@ -18,6 +18,10 @@ import {
   sanitizeInputText,
 } from './planningLogic';
 import { BudgetLineItem, GuestRecord, SeatingTable, VendorRecord } from '../types/planning';
+import {
+  computeOpeningCameraPose,
+  computeOpeningModuleTargets,
+} from './openingAnimationEngine';
 
 test('formatINR formats amounts in Indian Rupees with Indian numbering system', () => {
   assert.equal(formatINR(4500000), '₹45,00,000');
@@ -339,5 +343,75 @@ test('generateGuestSeatingQrPass creates unique 21x21 QR matrix, verification co
   assert.equal(pass1.mapPins.find((p) => p.tableNumber === 1)?.isAssignedTable, true);
   assert.equal(pass2.mapPins.find((p) => p.tableNumber === 2)?.isAssignedTable, true);
 });
+
+test('computeOpeningModuleTargets generates 14 distinct 3D module transforms across assemble, exploded, vortex, and hyperdrive modes', () => {
+  const assembled = computeOpeningModuleTargets('assemble', 0, 1.5);
+  const exploded = computeOpeningModuleTargets('exploded', 1.0, 1.5);
+  const vortex = computeOpeningModuleTargets('vortex', 0.4, 2.0);
+  const hyperdrive = computeOpeningModuleTargets('hyperdrive', 0.5, 3.0);
+
+  assert.equal(assembled.length, 14);
+  assert.equal(exploded.length, 14);
+  assert.equal(vortex.length, 14);
+  assert.equal(hyperdrive.length, 14);
+
+  const mandapAssembled = assembled.find((m) => m.id === 'mandap-core')!;
+  const mandapExploded = exploded.find((m) => m.id === 'mandap-core')!;
+  assert.ok(
+    mandapExploded.position[1] > mandapAssembled.position[1],
+    'Exploded mode elevates the Royal Mandap sanctuary vertically'
+  );
+
+  const poseDefault = computeOpeningCameraPose('assemble', 0, 0, 0.2, 1.0);
+  const poseWarp = computeOpeningCameraPose('hyperdrive', 0.5, -0.5, 0.8, 1.0);
+  assert.equal(poseDefault.fov, 45);
+  assert.equal(poseWarp.fov, 62);
+});
+
+test('computeSimpleOpeningTimeline smoothly interpolates 3.2s opening intro from 0% to 100% auto-complete', async () => {
+  const { computeSimpleOpeningTimeline } = await import('./openingAnimationEngine');
+  const start = computeSimpleOpeningTimeline(0, 3.2);
+  const mid = computeSimpleOpeningTimeline(1.6, 3.2);
+  const done = computeSimpleOpeningTimeline(3.2, 3.2);
+
+  assert.equal(start.progressPercent, 0);
+  assert.equal(start.isComplete, false);
+  assert.equal(mid.progressPercent, 50);
+  assert.ok(mid.archRiseY > start.archRiseY);
+  assert.ok(mid.cameraZ < start.cameraZ);
+  assert.equal(done.progressPercent, 100);
+  assert.equal(done.isComplete, true);
+  assert.equal(done.archRiseY, 0);
+});
+
+test('GOOGLE_FLOW_PROMPTS and computeVideoOpeningProgress provide valid 16:9 prompts and synchronized Aura Atelier title reveal states', async () => {
+  const {
+    GOOGLE_FLOW_PROMPTS,
+    DEFAULT_GOOGLE_FLOW_VIDEO_PATH,
+    computeVideoOpeningProgress,
+  } = await import('./openingAnimationEngine');
+  assert.equal(GOOGLE_FLOW_PROMPTS.length, 3);
+  assert.ok(GOOGLE_FLOW_PROMPTS[0].prompt.includes('AURA ATELIER'));
+  assert.equal(GOOGLE_FLOW_PROMPTS[0].aspectRatio, '16:9');
+  assert.ok(DEFAULT_GOOGLE_FLOW_VIDEO_PATH.includes('Camera_gliding_into_botanical'));
+
+  const pStart = computeVideoOpeningProgress(0.5, 9.0);
+  const pMid = computeVideoOpeningProgress(4.5, 9.0);
+  const pEnd = computeVideoOpeningProgress(9.0, 9.0);
+
+  assert.equal(pStart.isComplete, false);
+  assert.equal(pStart.lightingBadge, 'SUNSET WARMTH');
+  assert.equal(pMid.progressPercent, 50);
+  assert.equal(pMid.phaseLabel, 'Aligning 3D Spatial Architecture');
+  assert.equal(pMid.lightingBadge, 'TWILIGHT MORPH');
+  assert.equal(pMid.titleOpacity, 1);
+  assert.equal(pEnd.progressPercent, 100);
+  assert.equal(pEnd.lightingBadge, 'MIDNIGHT GALA');
+  assert.equal(pEnd.isComplete, true);
+});
+
+
+
+
 
 

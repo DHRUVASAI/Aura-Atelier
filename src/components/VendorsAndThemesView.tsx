@@ -1,8 +1,25 @@
 import React, { useEffect, useState } from 'react';
 import { EventPreset, MoodBoardItem, VendorRecord } from '../types/planning';
 import { formatINR, generateCounterOffer, NegotiationStrategy } from '../utils/planningLogic';
-import { Sparkles, Zap, Brain, CheckSquare, Image as ImageIcon, Send, Plus } from 'lucide-react';
+import {
+  Sparkles,
+  Zap,
+  Brain,
+  CheckSquare,
+  Image as ImageIcon,
+  Mail,
+  Plus,
+  StickyNote,
+  AlertTriangle,
+} from 'lucide-react';
 import { CustomSelectPopover } from './CustomSelectPopover';
+import {
+  createGoogleKeepNote,
+  googleSignIn,
+  listGmailMessages,
+  sendGmailNegotiationEmail,
+  subscribeWorkspaceAuth,
+} from '../services/firebaseAuth';
 
 interface VendorsAndThemesViewProps {
   preset: EventPreset;
@@ -82,6 +99,30 @@ export const VendorsAndThemesView: React.FC<VendorsAndThemesViewProps> = ({
     signatureMoments: string[];
   } | null>(null);
   const [isGeneratingTheme, setIsGeneratingTheme] = useState(false);
+
+  // Contextual Gmail & Google Keep Workspace State
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [gmailThreads, setGmailThreads] = useState<any[]>([]);
+  const [workspaceFeedback, setWorkspaceFeedback] = useState<{
+    type: 'success' | 'error' | 'info';
+    text: string;
+  } | null>(null);
+  const [pendingConfirm, setPendingConfirm] = useState<{
+    title: string;
+    description: string;
+    actionLabel: string;
+    onConfirm: () => Promise<void>;
+  } | null>(null);
+  const [isExecutingWorkspace, setIsExecutingWorkspace] = useState(false);
+
+  useEffect(() => {
+    const unsub = subscribeWorkspaceAuth((state) => {
+      setIsAuthenticated(state.isAuthenticated);
+      setUserEmail(state.userEmail);
+    });
+    return () => unsub();
+  }, []);
 
   const handleSelectVendor = (vendor: VendorRecord) => {
     setSelectedVendorId(vendor.id);
@@ -524,27 +565,105 @@ export const VendorsAndThemesView: React.FC<VendorsAndThemesViewProps> = ({
               />
             </div>
 
-            {onSendToWorkspaceEmail && (
-              <div className="flex items-center justify-between pt-2">
-                <span className="text-xs text-slate-500">
-                  Mode: {negotiationFastMode ? 'Instant Draft' : 'Deep Contract Strategy'}
-                </span>
-                <button
-                  type="button"
-                  onClick={() =>
-                    onSendToWorkspaceEmail(
-                      activeVendor.contactEmail,
-                      strategy.subjectLine,
-                      strategy.emailBody
-                    )
-                  }
-                  className="px-4 py-2 text-xs font-semibold text-white bg-emerald-700 rounded-lg hover:bg-emerald-800 transition-colors flex items-center gap-2 cursor-pointer"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>Stage in Gmail Workspace Dispatch</span>
-                </button>
+            {/* Contextual Gmail Dispatch directly inside Vendor Negotiation Desk */}
+            <div className="pt-3 border-t border-slate-200 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="text-xs text-slate-600 flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-red-600" />
+                  <span>
+                    {isAuthenticated
+                      ? `Gmail Connected (${userEmail})`
+                      : 'Connect Google to email this counter-offer directly via Gmail'}
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        if (!isAuthenticated) {
+                          await googleSignIn();
+                        }
+                        const msgs = await listGmailMessages(3);
+                        setGmailThreads(msgs);
+                        setWorkspaceFeedback({
+                          type: 'info',
+                          text: `Loaded ${msgs.length} recent vendor email thread(s) from Gmail.`,
+                        });
+                      } catch (err: any) {
+                        setWorkspaceFeedback({
+                          type: 'error',
+                          text: err?.message || 'Unable to load Gmail threads.',
+                        });
+                      }
+                    }}
+                    className="px-3 py-2 text-xs font-medium text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
+                  >
+                    Check Vendor Replies
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!isAuthenticated) {
+                        await googleSignIn();
+                      }
+                      setPendingConfirm({
+                        title: 'Confirm Sending Counter-Offer via Gmail',
+                        description: `Send this counter-proposal to ${activeVendor.name} (${activeVendor.contactEmail}) with subject "${strategy.subjectLine}"?`,
+                        actionLabel: 'Confirm & Send Gmail',
+                        onConfirm: async () => {
+                          await sendGmailNegotiationEmail(
+                            activeVendor.contactEmail,
+                            strategy.subjectLine,
+                            strategy.emailBody
+                          );
+                          setWorkspaceFeedback({
+                            type: 'success',
+                            text: `Counter-proposal dispatched to ${activeVendor.contactEmail} via Gmail.`,
+                          });
+                        },
+                      });
+                    }}
+                    className="px-4 py-2 text-xs font-semibold text-white bg-emerald-700 rounded-lg hover:bg-emerald-800 transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    <Mail className="w-3.5 h-3.5" />
+                    <span>Send Counter-Offer via Gmail</span>
+                  </button>
+                </div>
               </div>
-            )}
+
+              {workspaceFeedback && (
+                <div
+                  className={`p-3 rounded-lg border text-xs ${
+                    workspaceFeedback.type === 'error'
+                      ? 'bg-red-50 border-red-200 text-red-800'
+                      : workspaceFeedback.type === 'success'
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                      : 'bg-slate-50 border-slate-200 text-slate-700'
+                  }`}
+                >
+                  {workspaceFeedback.text}
+                </div>
+              )}
+
+              {gmailThreads.length > 0 && (
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1.5 text-xs">
+                  <div className="font-semibold text-slate-800">Recent Gmail Vendor Threads:</div>
+                  {gmailThreads.map((m) => (
+                    <div key={m.id} className="text-slate-600 flex items-center justify-between gap-2">
+                      <span className="truncate font-medium">
+                        {m.subject || m.snippet || `Thread ${m.id}`}
+                      </span>
+                      <span className="font-mono text-[11px] text-slate-400 shrink-0">
+                        {m.to || m.id}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </section>
@@ -679,6 +798,35 @@ export const VendorsAndThemesView: React.FC<VendorsAndThemesViewProps> = ({
                 {isGeneratingTheme ? 'Curating Theme Concept...' : 'Synthesize Theme Brief'}
               </button>
 
+              {/* Contextual Google Keep Note Sync inside Theme & Decor Studio */}
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!isAuthenticated) {
+                    await googleSignIn();
+                  }
+                  setPendingConfirm({
+                    title: 'Save Decor & Palette Note to Google Keep?',
+                    description: `Create a Google Keep note for "${preset.name}" containing your ${preset.linenColor} / ${preset.accentHex} color swatches and decor prompt?`,
+                    actionLabel: 'Confirm & Save to Keep',
+                    onConfirm: async () => {
+                      await createGoogleKeepNote(
+                        `${preset.name} — Theme & Decor Palette`,
+                        `Direction: ${themeStyleInput}\nPalette: ${preset.linenColor}, ${preset.accentHex}\nMood Board Prompt: ${imagePrompt}`
+                      );
+                      setWorkspaceFeedback({
+                        type: 'success',
+                        text: 'Saved theme & color swatch note to Google Keep.',
+                      });
+                    },
+                  });
+                }}
+                className="w-full py-2 px-3 text-xs font-semibold text-slate-800 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <StickyNote className="w-3.5 h-3.5 text-amber-600" />
+                <span>Save Theme Swatches to Google Keep</span>
+              </button>
+
               {generatedThemeConcept && (
                 <div className="pt-3 border-t border-slate-200 space-y-2 text-xs">
                   <div className="font-bold text-slate-900 text-sm">
@@ -748,6 +896,61 @@ export const VendorsAndThemesView: React.FC<VendorsAndThemesViewProps> = ({
           </div>
         </div>
       </section>
+
+      {/* Mandatory User Confirmation Dialog for Gmail & Keep Mutations */}
+      {pendingConfirm && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-950/70 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="vendor-workspace-confirm-title"
+        >
+          <div className="bg-white border border-slate-200 rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <h3 id="vendor-workspace-confirm-title" className="text-base font-bold text-slate-900">
+                  {pendingConfirm.title}
+                </h3>
+                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                  {pendingConfirm.description}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setPendingConfirm(null)}
+                disabled={isExecutingWorkspace}
+                className="px-3.5 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 rounded-md hover:bg-slate-200 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isExecutingWorkspace}
+                onClick={async () => {
+                  setIsExecutingWorkspace(true);
+                  try {
+                    await pendingConfirm.onConfirm();
+                  } catch (err: any) {
+                    setWorkspaceFeedback({
+                      type: 'error',
+                      text: err?.message || 'Workspace action failed.',
+                    });
+                  } finally {
+                    setIsExecutingWorkspace(false);
+                    setPendingConfirm(null);
+                  }
+                }}
+                className="px-4 py-1.5 text-xs font-semibold text-white bg-slate-900 rounded-md hover:bg-slate-800 cursor-pointer"
+              >
+                {isExecutingWorkspace ? 'Sending...' : pendingConfirm.actionLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

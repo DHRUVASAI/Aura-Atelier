@@ -66,7 +66,7 @@ Aura Atelier combines **deterministic domain algorithms** (`src/utils/planningLo
 
 ---
 
-## 5. Local Development, Testing & Netlify / GitHub Deployment
+## 5. Local Development, Testing & Vercel / Netlify Deployment
 
 ```bash
 npm install
@@ -75,4 +75,22 @@ npm run build
 npm run dev
 ```
 
-- **Netlify Deployment**: Connect your public GitHub repository to Netlify. Netlify automatically detects `netlify.toml` (`build command: npm run build`, `publish directory: dist`) and serves SPA routes and QR seating pass links (`/?seatingPass=...`) seamlessly.
+### Deploy Live on Vercel (Recommended)
+1. **Push to GitHub**: Push this repository to a public single-branch (`main`) GitHub repository.
+2. **Import into Vercel**:
+   - Go to [vercel.com/new](https://vercel.com/new) and click **Import** next to your GitHub repository.
+   - Vercel automatically reads `vercel.json`:
+     - **Framework Preset**: `Vite`
+     - **Build Command**: `npm run build`
+     - **Output Directory**: `dist`
+     - **Serverless API Routes**: `/api/*` automatically mounts `api/index.ts` (`server.ts`).
+   - *(Optional)* Under **Environment Variables**, add `GEMINI_API_KEY` if you want live server-side AI generation in addition to the built-in smart fallbacks.
+   - Click **Deploy**. Your live URL and all Guest QR Seating Pass deep links (`/?seatingPass=...`) will work immediately.
+3. **Or Deploy via Vercel CLI**:
+   ```bash
+   npx vercel --prod
+   ```
+
+### Deploy Live on Netlify
+- Connect your public GitHub repository to Netlify. Netlify automatically detects `netlify.toml` (`build command: npm run build`, `publish directory: dist`) and `public/_redirects` to serve SPA routes and QR seating pass links (`/?seatingPass=...`) seamlessly.
+

@@ -1,16 +1,37 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   BudgetLineItem,
   CollaboratorActivity,
+  EventPreset,
   PaymentTransaction,
   TimelineMilestone,
   VendorRecord,
 } from '../types/planning';
 import { BudgetSummaryMetrics, formatINR } from '../utils/planningLogic';
-import { IndianRupee, ShieldCheck, Sparkles, Plus, Clock, Users, Trash2 } from 'lucide-react';
+import {
+  IndianRupee,
+  ShieldCheck,
+  Sparkles,
+  Plus,
+  Clock,
+  Users,
+  Trash2,
+  Calendar,
+  FileText,
+  CheckSquare,
+  AlertTriangle,
+} from 'lucide-react';
 import { CustomSelectPopover } from './CustomSelectPopover';
+import {
+  createCalendarMilestone,
+  createGoogleTask,
+  createRunOfShowGoogleDoc,
+  googleSignIn,
+  subscribeWorkspaceAuth,
+} from '../services/firebaseAuth';
 
 interface BudgetAndPaymentsViewProps {
+  preset?: EventPreset;
   budgetItems: BudgetLineItem[];
   budgetMetrics: BudgetSummaryMetrics;
   vendors: VendorRecord[];
@@ -31,6 +52,7 @@ interface BudgetAndPaymentsViewProps {
 }
 
 export const BudgetAndPaymentsView: React.FC<BudgetAndPaymentsViewProps> = ({
+  preset,
   budgetItems,
   budgetMetrics,
   vendors,
@@ -70,6 +92,35 @@ export const BudgetAndPaymentsView: React.FC<BudgetAndPaymentsViewProps> = ({
   const [msTitle, setMsTitle] = useState('');
   const [msOwner, setMsOwner] = useState('Lead Producer');
   const [msLocation, setMsLocation] = useState('Main Courtyard');
+
+  // Contextual Google Workspace State (Calendar, Docs, Tasks)
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [workspaceBanner, setWorkspaceBanner] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
+  const [createdDocInfo, setCreatedDocInfo] = useState<{
+    documentId: string;
+    title: string;
+  } | null>(null);
+  const [pendingConfirm, setPendingConfirm] = useState<{
+    title: string;
+    description: string;
+    actionLabel: string;
+    onConfirm: () => Promise<void>;
+  } | null>(null);
+  const [isExecutingWorkspace, setIsExecutingWorkspace] = useState(false);
+
+  useEffect(() => {
+    const unsub = subscribeWorkspaceAuth((state) => {
+      setIsAuthenticated(state.isAuthenticated);
+    });
+    return () => unsub();
+  }, []);
+
+  const eventTitle = preset?.name || 'Active Event';
+  const eventDate = preset?.date || '2026-11-24';
+  const eventVenue = preset?.venueName || 'Main Venue';
 
   const handleRunOptimization = () => {
     const notes = onOptimizeBudget();
@@ -132,7 +183,7 @@ export const BudgetAndPaymentsView: React.FC<BudgetAndPaymentsViewProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8 space-y-10">
-      {/* Section Header + Resource Allocation Trigger */}
+      {/* Section Header + Resource Allocation + Contextual Google Docs Export */}
       <div className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 pb-6">
         <div>
           <p className="text-xs text-slate-500">
@@ -142,15 +193,73 @@ export const BudgetAndPaymentsView: React.FC<BudgetAndPaymentsViewProps> = ({
             Smart Rupee (₹) Budget Tracking & Vendor Payment Gateway
           </h1>
         </div>
-        <button
-          type="button"
-          onClick={handleRunOptimization}
-          className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-2 whitespace-nowrap shrink-0 cursor-pointer"
-        >
-          <Sparkles className="w-4 h-4 text-amber-400" />
-          <span>Auto-Balance ₹ Budget Allocation</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            type="button"
+            onClick={async () => {
+              if (!isAuthenticated) {
+                await googleSignIn();
+              }
+              setPendingConfirm({
+                title: 'Export Financial & Run-of-Show Brief to Google Docs?',
+                description: `Create a formatted Google Doc titled "${eventTitle} — Financial & Run-of-Show Brief" with your ${formatINR(budgetMetrics.totalCap)} ledger and ${timeline.length} timeline cues?`,
+                actionLabel: 'Create Google Doc',
+                onConfirm: async () => {
+                  const docText = `${eventTitle}\nVenue: ${eventVenue}\nDate: ${eventDate}\nMaster Cap: ${formatINR(budgetMetrics.totalCap)}\nAllocated: ${formatINR(budgetMetrics.totalAllocated)}\nSettled: ${formatINR(budgetMetrics.totalSpent)}\n\nTIMELINE CUES:\n${timeline
+                    .map((t) => `- ${t.time}: ${t.title} (${t.locationZone})`)
+                    .join('\n')}\n\nVENDORS:\n${vendors
+                    .map((v) => `- ${v.name}: Target ${formatINR(v.negotiatedTarget)} (Paid: ${formatINR(v.paidAmount)})`)
+                    .join('\n')}\n`;
+                  const doc = await createRunOfShowGoogleDoc(
+                    `${eventTitle} — Financial & Run-of-Show Brief`,
+                    docText
+                  );
+                  setCreatedDocInfo(doc);
+                  setWorkspaceBanner({
+                    type: 'success',
+                    text: `Exported "${doc.title}" to Google Docs.`,
+                  });
+                },
+              });
+            }}
+            className="px-3.5 py-2 text-xs font-semibold text-slate-800 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
+          >
+            <FileText className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Export Brief to Google Docs</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleRunOptimization}
+            className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-2 whitespace-nowrap shrink-0 cursor-pointer"
+          >
+            <Sparkles className="w-4 h-4 text-amber-400" />
+            <span>Auto-Balance ₹ Budget Allocation</span>
+          </button>
+        </div>
       </div>
+
+      {workspaceBanner && (
+        <div
+          className={`p-3.5 rounded-xl border text-xs flex flex-wrap items-center justify-between gap-2 ${
+            workspaceBanner.type === 'error'
+              ? 'bg-red-50 border-red-200 text-red-800'
+              : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+          }`}
+        >
+          <span>{workspaceBanner.text}</span>
+          {createdDocInfo && !createdDocInfo.documentId.startsWith('doc-') && (
+            <a
+              href={`https://docs.google.com/document/d/${createdDocInfo.documentId}/edit`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline font-semibold"
+            >
+              Open in Google Docs →
+            </a>
+          )}
+        </div>
+      )}
 
       {/* KPI Strip in Indian Rupees (₹) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -376,16 +485,45 @@ export const BudgetAndPaymentsView: React.FC<BudgetAndPaymentsViewProps> = ({
             </form>
           </div>
 
-          {/* Collaborative Milestone Timeline */}
+          {/* Collaborative Milestone Timeline + Contextual Google Calendar Sync */}
           <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <Clock className="w-4 h-4 text-slate-600" />
                 <span>Event Run-of-Show & Milestone Schedule</span>
               </h2>
-              <span className="text-xs text-slate-500">
-                Real-Time Collaborative Timeline
-              </span>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!isAuthenticated) {
+                    await googleSignIn();
+                  }
+                  setPendingConfirm({
+                    title: 'Sync Milestones to Google Calendar?',
+                    description: `Publish ${timeline.length} run-of-show milestones for "${eventTitle}" on ${eventDate} to your primary Google Calendar?`,
+                    actionLabel: 'Confirm & Sync Calendar',
+                    onConfirm: async () => {
+                      for (const ms of timeline.slice(0, 4)) {
+                        await createCalendarMilestone(
+                          `${eventTitle}: ${ms.title}`,
+                          eventDate,
+                          ms.time,
+                          eventVenue,
+                          `Owner: ${ms.owner} · Zone: ${ms.locationZone}`
+                        );
+                      }
+                      setWorkspaceBanner({
+                        type: 'success',
+                        text: `Synced ${timeline.length} run-of-show milestones for ${eventDate} to Google Calendar.`,
+                      });
+                    },
+                  });
+                }}
+                className="px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors flex items-center gap-1.5 cursor-pointer"
+              >
+                <Calendar className="w-3.5 h-3.5 text-blue-600" />
+                <span>Sync Schedule to Google Calendar</span>
+              </button>
             </div>
 
             <div className="divide-y divide-slate-200 text-xs">
@@ -611,12 +749,49 @@ export const BudgetAndPaymentsView: React.FC<BudgetAndPaymentsViewProps> = ({
             </div>
           </div>
 
-          {/* Collaborative Activity Log */}
+          {/* Collaborative Activity Log + Contextual Google Tasks Action Push */}
           <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-3">
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <Users className="w-4 h-4 text-slate-600" />
-              <span>Collaborative Planning Activity</span>
-            </h3>
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Users className="w-4 h-4 text-slate-600" />
+                <span>Collaborative Planning Activity</span>
+              </h3>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!isAuthenticated) {
+                    await googleSignIn();
+                  }
+                  setPendingConfirm({
+                    title: 'Push Action Items to Google Tasks?',
+                    description: `Export open vendor production checklists and payment follow-ups for "${eventTitle}" to your primary Google Tasks list?`,
+                    actionLabel: 'Export to Google Tasks',
+                    onConfirm: async () => {
+                      const openTasks = vendors.flatMap((v) =>
+                        v.checklist
+                          .filter((c) => !c.completed)
+                          .map((c) => ({ vendor: v.name, ...c }))
+                      );
+                      for (const t of openTasks.slice(0, 3)) {
+                        await createGoogleTask(
+                          `[${t.vendor}] ${t.task}`,
+                          `Event: ${eventTitle}`,
+                          t.dueDate
+                        );
+                      }
+                      setWorkspaceBanner({
+                        type: 'success',
+                        text: 'Pushed open vendor checklist items to Google Tasks.',
+                      });
+                    },
+                  });
+                }}
+                className="px-2.5 py-1 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-md hover:bg-emerald-100 flex items-center gap-1 cursor-pointer"
+              >
+                <CheckSquare className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Sync Tasks</span>
+              </button>
+            </div>
             <div className="divide-y divide-slate-200 text-xs">
               {collaboratorFeed.map((item) => (
                 <div key={item.id} className="py-2.5 space-y-0.5">
@@ -631,6 +806,61 @@ export const BudgetAndPaymentsView: React.FC<BudgetAndPaymentsViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Mandatory Confirmation Dialog for Calendar, Docs & Tasks Mutations */}
+      {pendingConfirm && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-950/70 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="budget-workspace-confirm-title"
+        >
+          <div className="bg-white border border-slate-200 rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <h3 id="budget-workspace-confirm-title" className="text-base font-bold text-slate-900">
+                  {pendingConfirm.title}
+                </h3>
+                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                  {pendingConfirm.description}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setPendingConfirm(null)}
+                disabled={isExecutingWorkspace}
+                className="px-3.5 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 rounded-md hover:bg-slate-200 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isExecutingWorkspace}
+                onClick={async () => {
+                  setIsExecutingWorkspace(true);
+                  try {
+                    await pendingConfirm.onConfirm();
+                  } catch (err: any) {
+                    setWorkspaceBanner({
+                      type: 'error',
+                      text: err?.message || 'Workspace operation failed.',
+                    });
+                  } finally {
+                    setIsExecutingWorkspace(false);
+                    setPendingConfirm(null);
+                  }
+                }}
+                className="px-4 py-1.5 text-xs font-semibold text-white bg-slate-900 rounded-md hover:bg-slate-800 cursor-pointer"
+              >
+                {isExecutingWorkspace ? 'Syncing...' : pendingConfirm.actionLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

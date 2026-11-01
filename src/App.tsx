@@ -46,6 +46,13 @@ import { VendorsAndThemesView } from './components/VendorsAndThemesView';
 import { BioscienceAndWorkspaceView } from './components/BioscienceAndWorkspaceView';
 import { GeminiChatbotDrawer } from './components/GeminiChatbotDrawer';
 import { CustomSelectPopover } from './components/CustomSelectPopover';
+import { OpeningCinematic3D } from './components/OpeningCinematic3D';
+import {
+  googleSignIn,
+  initAuth,
+  logout,
+  subscribeWorkspaceAuth,
+} from './services/firebaseAuth';
 
 type ActiveSection =
   | 'landing'
@@ -55,6 +62,14 @@ type ActiveSection =
   | 'bioscience-workspace';
 
 export default function App() {
+  const [showOpening3D, setShowOpening3D] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('autostart') === '1' || params.get('seatingPass')) {
+      return false;
+    }
+    return true;
+  });
   const [activeSection, setActiveSection] = useState<ActiveSection>('landing');
   const [presets, setPresets] = useState<EventPreset[]>(EVENT_PRESETS);
   const [selectedPresetId, setSelectedPresetId] = useState<string>(EVENT_PRESETS[0].id);
@@ -87,6 +102,20 @@ export default function App() {
     subject: string;
     body: string;
   } | null>(null);
+  const [isWorkspaceConnected, setIsWorkspaceConnected] = useState<boolean>(false);
+  const [workspaceUserEmail, setWorkspaceUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unsubInit = initAuth();
+    const unsubState = subscribeWorkspaceAuth((state) => {
+      setIsWorkspaceConnected(state.isAuthenticated);
+      setWorkspaceUserEmail(state.userEmail);
+    });
+    return () => {
+      unsubInit();
+      unsubState();
+    };
+  }, []);
 
   // Detect scanned QR pass URL (?seatingPass=<guestId>) on mobile devices
   useEffect(() => {
@@ -538,6 +567,17 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F8FAFC] text-slate-900">
+      {/* Interactive 3D Architectural Module Opening Animation */}
+      {showOpening3D && (
+        <OpeningCinematic3D
+          onEnterLanding={() => setShowOpening3D(false)}
+          onLaunch3DStudioDirectly={() => {
+            setShowOpening3D(false);
+            setActiveSection('spatial-3d');
+          }}
+        />
+      )}
+
       {/* WCAG 2.1 AA Skip-to-Main-Content Link */}
       <a
         href="#main-workspace"
@@ -608,7 +648,7 @@ export default function App() {
                 : 'hover:text-slate-900'
             }`}
           >
-            Bioscience & Sync
+            Molecular Safety
           </button>
         </nav>
 
@@ -657,6 +697,29 @@ export default function App() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 font-mono tabular-nums text-slate-300">
+            {!isWorkspaceConnected ? (
+              <button
+                type="button"
+                onClick={() => googleSignIn()}
+                className="px-2.5 py-1 rounded-md bg-white text-slate-900 hover:bg-slate-100 font-sans font-semibold flex items-center gap-1.5 cursor-pointer"
+              >
+                <span className="w-2 h-2 rounded-full bg-blue-600" />
+                <span>Sign in with Google</span>
+              </button>
+            ) : (
+              <div className="flex items-center gap-2 font-sans bg-emerald-950/80 border border-emerald-700/70 text-emerald-300 px-2.5 py-1 rounded-md">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                <span className="truncate max-w-[160px]">{workspaceUserEmail}</span>
+                <button
+                  type="button"
+                  onClick={() => logout()}
+                  className="text-slate-300 hover:text-white underline ml-1 cursor-pointer"
+                >
+                  Sign Out
+                </button>
+              </div>
+            )}
+            <span aria-hidden="true">·</span>
             <button
               type="button"
               onClick={handleExecuteReadinessAction}
@@ -686,6 +749,7 @@ export default function App() {
               setActiveSection('spatial-3d');
             }}
             onCreateCustomEvent={handleCreateCustomEvent}
+            onReplayOpening={() => setShowOpening3D(true)}
           />
         )}
 
@@ -717,6 +781,7 @@ export default function App() {
 
         {activeSection === 'budget-payments' && (
           <BudgetAndPaymentsView
+            preset={activePreset}
             budgetItems={currentBudgetItems}
             budgetMetrics={budgetMetrics}
             vendors={vendors}

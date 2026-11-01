@@ -34,11 +34,13 @@ interface LandingPageProps {
     lightingMode: LightingAtmosphere;
     startWithBlankLedger: boolean;
   }) => void;
+  onReplayOpening?: () => void;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({
   onOpenSampleEvent,
   onCreateCustomEvent,
+  onReplayOpening,
 }) => {
   // Interactive 3D Hero Block Preview State
   const [previewEnv, setPreviewEnv] = useState<VenueEnvironmentMode>('outdoor');
@@ -154,6 +156,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               >
                 Explore Sample Demo (₹45,00,000)
               </button>
+
+              {onReplayOpening && (
+                <button
+                  type="button"
+                  onClick={onReplayOpening}
+                  className="px-4 py-3.5 text-xs font-semibold text-amber-300 bg-slate-950 border border-amber-500/40 rounded-xl hover:bg-slate-900 transition-colors flex items-center gap-2 cursor-pointer"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  <span>Google Flow Intro Video / Replay</span>
+                </button>
+              )}
             </div>
 
             {/* Key Capabilities Footnote */}
