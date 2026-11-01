@@ -410,6 +410,56 @@ test('GOOGLE_FLOW_PROMPTS and computeVideoOpeningProgress provide valid 16:9 pro
   assert.equal(pEnd.isComplete, true);
 });
 
+test('optimizeBudgetAllocation handles balanced budget without over-spend gracefully', () => {
+  const items: BudgetLineItem[] = [
+    {
+      id: 'b1',
+      category: 'Venue',
+      title: 'Palace Courtyard',
+      allocated: 1000000,
+      spent: 900000,
+      notes: '',
+      priority: 'essential',
+    },
+  ];
+  const res = optimizeBudgetAllocation(items, 1500000);
+  assert.equal(res.updatedItems.length, 1);
+  assert.equal(res.updatedItems[0].allocated, 1000000);
+  assert.ok(res.recommendations.length > 0);
+});
+
+test('sanitizeInputText handles empty, boundary, and special character inputs safely', () => {
+  assert.equal(sanitizeInputText('', 20), '');
+  assert.equal(sanitizeInputText('   ', 20), '');
+  const longText = 'A'.repeat(100);
+  const clamped = sanitizeInputText(longText, 15);
+  assert.equal(clamped.length, 15);
+});
+
+test('calculateSeatingMetrics handles empty guest lists without NaN errors', () => {
+  const tables: SeatingTable[] = [
+    { tableNumber: 1, label: 'Table 1', capacity: 8, zone: 'Garden', x: 0, z: 0 },
+  ];
+  const metrics = calculateSeatingMetrics([], tables);
+  assert.equal(metrics.confirmedGuests, 0);
+  assert.equal(metrics.seatedHeadcount, 0);
+  assert.equal(metrics.unassignedHeadcount, 0);
+  assert.equal(metrics.totalHeadcount, 0);
+});
+
+test('evaluateCompoundSafety handles missing or zero molecular descriptors safely', () => {
+  const safeEval = evaluateCompoundSafety({
+    molecularWeight: 0,
+    xlogp: 0,
+    tpsa: 0,
+    hBondDonorCount: 0,
+    hBondAcceptorCount: 0,
+    ghsHazards: [],
+  });
+  assert.equal(safeEval.lipinskiCompliant, true);
+  assert.ok(safeEval.safetySummary.length > 0);
+});
+
 
 
 
