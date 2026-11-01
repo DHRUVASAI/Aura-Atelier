@@ -604,9 +604,22 @@ export const OpeningCinematic3D: React.FC<OpeningCinematic3DProps> = ({
     }
   };
 
+  const handleContainerClick = () => {
+    if (videoRef.current) {
+      if (videoRef.current.paused) {
+        videoRef.current.play().catch(() => {});
+      }
+      if (isMuted) {
+        setIsMuted(false);
+        videoRef.current.muted = false;
+      }
+    }
+  };
+
   return (
     <section
       aria-label="Aura Atelier Opening Intro"
+      onClick={handleContainerClick}
       className={`fixed inset-0 z-50 select-none overflow-hidden bg-[#090D18] text-white transition-all duration-700 ease-out ${
         isFadingOut ? 'opacity-0 scale-105 blur-sm pointer-events-none' : 'opacity-100 scale-100 blur-0'
       }`}
@@ -624,7 +637,7 @@ export const OpeningCinematic3D: React.FC<OpeningCinematic3DProps> = ({
           ref={videoRef}
           src={activeVideoSrc}
           autoPlay
-          muted={false}
+          muted={isMuted}
           playsInline
           onTimeUpdate={handleVideoTimeUpdate}
           onEnded={() => {
@@ -641,13 +654,37 @@ export const OpeningCinematic3D: React.FC<OpeningCinematic3DProps> = ({
         />
       )}
 
-      {/* Top Controls & Bottom Progress HUD */}
+      {/* Top Controls Bar (Only Skip Intro & Sound Toggle as requested) */}
       <div className="relative z-10 h-full flex flex-col justify-between p-6 sm:p-10 pointer-events-none">
-        {/* Top Controls Bar */}
-        <div className="flex justify-end">
+        <div className="flex justify-end items-center gap-3">
           <button
             type="button"
-            onClick={triggerSmoothExit}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleAudioMute();
+            }}
+            className="pointer-events-auto px-4 py-2 rounded-full text-xs font-medium text-slate-200 bg-[#090D18]/80 hover:bg-white/20 border border-white/15 backdrop-blur-md transition-colors flex items-center gap-1.5 cursor-pointer"
+            aria-label={isMuted ? "Unmute Video Sound" : "Mute Video Sound"}
+          >
+            {isMuted ? (
+              <>
+                <VolumeX className="w-3.5 h-3.5 text-amber-400" />
+                <span>Tap for Sound</span>
+              </>
+            ) : (
+              <>
+                <Volume2 className="w-3.5 h-3.5 text-amber-400" />
+                <span>Sound On</span>
+              </>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              triggerSmoothExit();
+            }}
             className="pointer-events-auto px-4 py-2 rounded-full text-xs font-medium text-slate-200 bg-[#090D18]/80 hover:bg-white/20 border border-white/15 backdrop-blur-md transition-colors flex items-center gap-1.5 cursor-pointer"
           >
             <span>Skip Intro</span>
@@ -655,30 +692,8 @@ export const OpeningCinematic3D: React.FC<OpeningCinematic3DProps> = ({
           </button>
         </div>
 
-        {/* Bottom Timeline Progress Bar & Enter Studio CTA */}
-        <div className="mx-auto w-full max-w-md text-center space-y-2 px-6 py-3.5 rounded-2xl bg-[#090D18]/85 border border-amber-500/25 backdrop-blur-md shadow-2xl pointer-events-auto">
-          <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-            <div
-              ref={progressFillRef}
-              className="h-full bg-amber-400 transition-all duration-75"
-              style={{ width: '12%' }}
-            />
-          </div>
-
-          <div className="flex items-center justify-between gap-2 text-[11px] text-slate-300 font-mono">
-            <span ref={phaseTextRef} className="truncate">
-              Opening Conservatory Gates · Sunset Warmth
-            </span>
-            <button
-              type="button"
-              onClick={triggerSmoothExit}
-              className="text-amber-300 hover:text-amber-200 font-semibold shrink-0 cursor-pointer flex items-center gap-1"
-            >
-              <span>Enter Studio</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
+        {/* Bottom spacer - bottom HUD removed completely */}
+        <div />
       </div>
 
       {/* Google Flow Prompt & Video Upload Studio Modal */}
